@@ -146,7 +146,8 @@ public class Main {
             	Boolean atLeastOneData = false;
             	for(String header : headers) {
             		JTextArea area = textAreaByHeader.get(header);
-            		if(area.getText() != null && area.getText().trim() != "") {
+            		if(area.getText() != null && area.getText().trim() != "" && !area.getText().isEmpty()) {
+            		
             			atLeastOneData = true;
             		}
             		System.out.println(area.getText());

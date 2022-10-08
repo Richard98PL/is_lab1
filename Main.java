@@ -18,6 +18,7 @@ import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -137,12 +138,6 @@ public class Main {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setVisible(true);
         
-        btn_save_xmlFile.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-            	
-            }
-        });
-        
         
         crudButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
@@ -181,17 +176,65 @@ public class Main {
                     FileWriter xml = new FileWriter(f);
                     xml.write("<laptops>" + "\n");
 
+                    HashMap<String, Integer> howManyChildren = new HashMap<String, Integer>();
+                    howManyChildren.put("screen", 3);
+                    howManyChildren.put("processor", 3);
+                    howManyChildren.put("disc", 2);
+                    howManyChildren.put("graphic_card", 2);
+                    
+                    HashMap<String, String> parentAfterMarkdown = new HashMap<String, String>();
+                    parentAfterMarkdown.put("manufacturer", "screen");
+                    parentAfterMarkdown.put("screen", "processor");
+                    parentAfterMarkdown.put("ram", "disc");
+                    parentAfterMarkdown.put("disc", "graphic_card");
+
                     for (int i = 0; i < model.getRowCount(); i++) {
                     	xml.write("\t<laptop>" + "\n");
+                    	String previousColumnName = "";
+                    	
+                        HashMap<String, String> valueByKey = new HashMap<String, String>();
+                        List<Integer> whichValuesToSkip = new ArrayList<Integer>();
+                        
+                        String previousColumn = "";
                         for (int j = 0; j < model.getColumnCount(); j++) {
-                        	String columnName = headerTranslations.get(model.getColumnName(j));
-                        	xml.write("\t\t<" + columnName + ">");
-                        	String value = (String) model.getValueAt(i,  j);
-                        	System.out.println(value);
-                        	if(value == null) {
-                        		value = "";
+                        	if(whichValuesToSkip.contains(j)) {
+                        		continue;
                         	}
-                            xml.write(value + "</" + columnName + ">" + "\n");
+                        	
+                        	String columnName = headerTranslations.get(model.getColumnName(j));
+                        
+							if(parentAfterMarkdown.get(previousColumn) != null) {
+							    xml.write("\t\t<" + parentAfterMarkdown.get(previousColumn) + ">"); 
+							    System.out.println("previousColumn = " + previousColumn);
+							    System.out.println(howManyChildren);
+							    Integer howManyChildrenForThisParent = howManyChildren.get(parentAfterMarkdown.get(previousColumn));
+	                        	if(howManyChildrenForThisParent != null) {
+	                        		for(int o = 0 ; o < howManyChildrenForThisParent; o++) {
+	                        			System.out.println(j+o);
+	                        			whichValuesToSkip.add(j+o);
+	                        			String childrenColumnName = headerTranslations.get(model.getColumnName(j+o));
+	                        			xml.write("\n\t\t\t<" + childrenColumnName + ">");
+	                        			String childrenValue = (String) model.getValueAt(i, j+o);
+	                        			if(childrenValue == null) {
+	                        				childrenValue = "";
+	                        			}
+	                        			xml.write(childrenValue + "</" + childrenColumnName + ">");
+	                        		}
+	                        	}
+	                        	xml.write("\n\t\t</" + parentAfterMarkdown.get(previousColumn) + ">\n");   
+	                        	previousColumn = parentAfterMarkdown.get(previousColumn);
+							}else {
+								xml.write("\t\t<" + columnName + ">");
+								String value = (String) model.getValueAt(i, j);
+	                        	if(value == null) {
+	                        		value = "";
+	                        	}
+	                            xml.write(value + "</" + columnName + ">" + "\n");
+	                            previousColumn = columnName;
+							}
+
+                        	
+
                         }
                         xml.write("\t</laptop>\n");
                     }
@@ -211,7 +254,6 @@ public class Main {
             public void actionPerformed(ActionEvent e) {
             	try {
 
-            		System.out.println("here");
                     TableModel model = table.getModel();
                     File f = new File("savedDane.txt");
                     f.createNewFile();
@@ -225,11 +267,9 @@ public class Main {
 //
 //                    csv.write("\n");
 
-                    System.out.println(model.getColumnCount());
                     for (int i = 0; i < model.getRowCount(); i++) {
                         for (int j = 0; j < model.getColumnCount(); j++) {
                         	String value = (String) model.getValueAt(i,  j);
-                        	System.out.println(value);
                         	if(value == null) {
                         		value = "";
                         	}
@@ -273,7 +313,6 @@ public class Main {
                         CSVParser csvParser = CSVFormat.EXCEL.withDelimiter(';').parse(inputStreamReader);
 
                         for (String header: headers) {
-                            System.out.println(header);
                             csv_data.addColumn(header);
                         }
 
@@ -284,7 +323,6 @@ public class Main {
                                 	row.add(csvRecord.get(r));
                                 }
                             }
-                            System.out.println(row);
                             csv_data.addRow(row);
                         }
                     } catch (Exception ex) {
@@ -324,8 +362,6 @@ public class Main {
 
                         Document doc = db.parse(f);
 
-                        System.out.println("Root Element :" + doc.getDocumentElement().getNodeName());
-                        System.out.println("------");
 
                         if (doc.hasChildNodes()) {
                             printNote(doc.getChildNodes(), xml_data);
@@ -353,8 +389,8 @@ public class Main {
 
                 // get node name and value
                 if(!tempNode.getTextContent().contains("\n")) {
-                	System.out.println("\nNode Name =" + tempNode.getNodeName());
-                    System.out.println("Node Value =" + tempNode.getTextContent());
+//                	System.out.println("\nNode Name =" + tempNode.getNodeName());
+//                    System.out.println("Node Value =" + tempNode.getTextContent());
                     row.add(tempNode.getTextContent());
                     if(tempNode.getNodeName() == "disc_reader") {
                     	xml_data.addRow(row);

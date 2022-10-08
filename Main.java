@@ -1,8 +1,13 @@
 package is_lab1;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableModel;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.GridLayout;
@@ -10,39 +15,52 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Vector;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+   
 
 public class Main {
 
-	static List<String> headers = Arrays.asList(
-		"Producent",
-		"wielkość matrycy",
-		"rozdzielczość",
-		"typ matrycy",
-		"czy dotykowy ekran",
-		"procesor",
-		"liczba rdzeni fizyczynch",
-		"taktowanie",
-		"RAM",
-		"pojemność dysku",
-		"typ dysku",
-		"karta graficzna",
-		"pamięć karty graficznej",
-		"system operacyjny",
-		"Napęd optyczny");
-	
+	static JTable table = new JTable();
+    static List < String > headers = Arrays.asList(
+        "Producent",
+        "wielkość matrycy",
+        "typ matrycy",
+        "czy dotykowy ekran",
+        "procesor",
+        "liczba rdzeni fizyczynch",
+        "taktowanie",
+        "RAM",
+        "pojemność dysku",
+        "typ dysku",
+        "karta graficzna",
+        "pamięć karty graficznej",
+        "system operacyjny",
+        "Napęd optyczny");
+    static HashMap <String, String> headerTranslations = new HashMap<String,String>();
+    static HashMap <String, JTextArea> textAreaByHeader = new HashMap<String, JTextArea>();
+
     public static void main(String args[]) {
+    	fillHeaderTranslations();
         JFrame frame = new JFrame("Integracja systemów - Ryszard Rogalski");
-        
+
         JLabel selected_file = new JLabel();
-        
-        frame.setSize(1920, 1080);
+
+        frame.setSize(1350, 800);
         frame.setLocationRelativeTo(null);
         frame.setLayout(new BoxLayout(frame.getContentPane(), BoxLayout.Y_AXIS));
         //frame.setLayout(new GridLayout(2,2));
@@ -58,12 +76,14 @@ public class Main {
         JButton btn_save_xmlFile = new JButton("Save File (*.xml)");
         btn_save_xmlFile.setSize(100, 100);
 
+
+        
         
         JPanel buttonPanel = new JPanel();
         buttonPanel.setPreferredSize(new Dimension(750, 50));
-        buttonPanel.setMaximumSize(buttonPanel.getPreferredSize()); 
+        buttonPanel.setMaximumSize(buttonPanel.getPreferredSize());
         buttonPanel.setMinimumSize(buttonPanel.getPreferredSize());
-        
+
         buttonPanel.setLayout(new GridLayout(1, 4));
         buttonPanel.setSize(1920, 150);
         buttonPanel.setBorder(BorderFactory.createTitledBorder("Actions"));
@@ -71,33 +91,167 @@ public class Main {
         buttonPanel.add(btn_xmlFile);
         buttonPanel.add(btn_save_textFile);
         buttonPanel.add(btn_save_xmlFile);
-        
+
         frame.add(buttonPanel);
+
+        JPanel crudPanel = new JPanel();
+        crudPanel.setLayout(new GridLayout(5,3));
+        crudPanel.setBorder(BorderFactory.createTitledBorder("Adding data"));
         
-        
-        JPanel panel = new JPanel();   
+        for(Integer i = 0; i < headers.size() ; i++) {
+        	String header = headers.get(i);
+        	
+        	JPanel tmpPanel = new JPanel();
+        	tmpPanel.setLayout(new GridLayout(0, 1));
+        	tmpPanel.setBorder(BorderFactory.createTitledBorder(header));
+        	JTextArea tmpArea = new JTextArea();
+        	textAreaByHeader.put(header,  tmpArea);
+        	tmpPanel.add(tmpArea);
+        	crudPanel.add(tmpPanel);
+        }
+        JButton crudButton = new JButton("Add data");
+        crudButton.setBackground(Color.BLUE);
+        crudButton.setOpaque(true);
+        crudPanel.add(crudButton);
+        frame.add(crudPanel);
+
+        JPanel panel = new JPanel();
         panel.setLayout(new GridLayout(0, 1));
-       
+
         panel.setBorder(BorderFactory.createTitledBorder("Data"));
-        
-        JTable table = new JTable();
+
         JScrollPane sp = new JScrollPane(table);
-        
-        //frame.add(selected_file);
+
         panel.add(sp);
         frame.add(panel);
-        
+
         DefaultTableModel initModel = new DefaultTableModel();
 
-        for(String header : headers) {
-        	System.out.println(header);
-        	initModel.addColumn(header);
+        for (String header: headers) {
+            initModel.addColumn(header);
         }
         table.setModel(initModel);
-        
-        
-        panel.add(table.getTableHeader(), BorderLayout.CENTER);
 
+
+        panel.add(table.getTableHeader(), BorderLayout.CENTER);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setVisible(true);
+        
+        btn_save_xmlFile.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+            	
+            }
+        });
+        
+        
+        crudButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+            	Vector<String> row = new Vector<String>();
+            	System.out.println("crudButtonListener");
+            	Boolean atLeastOneData = false;
+            	for(String header : headers) {
+            		JTextArea area = textAreaByHeader.get(header);
+            		if(area.getText() != null && area.getText().trim() != "") {
+            			atLeastOneData = true;
+            		}
+            		System.out.println(area.getText());
+            		row.add(area.getText());
+            	}
+            	if(atLeastOneData) {
+            		DefaultTableModel model = (DefaultTableModel) table.getModel();
+            		model.addRow(row);
+                	
+                	table.setModel(model);
+                	for(String header : headers) {
+                		JTextArea area = textAreaByHeader.get(header);
+                		area.setText("");
+                	}
+            	}
+            }
+        });
+        
+		btn_save_xmlFile.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+            	try {
+                    TableModel model = table.getModel();
+                    File f = new File("savedDane.xml");
+                    f.createNewFile();
+                    System.out.println(f.getAbsolutePath());
+                    
+                    FileWriter xml = new FileWriter(f);
+                    xml.write("<laptops>" + "\n");
+
+                    for (int i = 0; i < model.getRowCount(); i++) {
+                    	xml.write("\t<laptop>" + "\n");
+                        for (int j = 0; j < model.getColumnCount(); j++) {
+                        	String columnName = headerTranslations.get(model.getColumnName(j));
+                        	xml.write("\t\t<" + columnName + ">");
+                        	String value = (String) model.getValueAt(i,  j);
+                        	System.out.println(value);
+                        	if(value == null) {
+                        		value = "";
+                        	}
+                            xml.write(value + "</" + columnName + ">" + "\n");
+                        }
+                        xml.write("\t</laptop>\n");
+                    }
+
+                    xml.write("</laptops>");
+                    xml.close();
+                    
+                   
+                } catch (IOException ex) {
+            		System.out.println("error");
+                    System.out.println(ex.getMessage());
+                }
+            }
+        });
+		
+        btn_save_textFile.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+            	try {
+
+            		System.out.println("here");
+                    TableModel model = table.getModel();
+                    File f = new File("savedDane.txt");
+                    f.createNewFile();
+                    System.out.println(f.getAbsolutePath());
+                    
+                    FileWriter csv = new FileWriter(f);
+
+//                    for (int i = 0; i < model.getColumnCount(); i++) {
+//                        csv.write(model.getColumnName(i) + ";");
+////                    }
+//
+//                    csv.write("\n");
+
+                    System.out.println(model.getColumnCount());
+                    for (int i = 0; i < model.getRowCount(); i++) {
+                        for (int j = 0; j < model.getColumnCount(); j++) {
+                        	String value = (String) model.getValueAt(i,  j);
+                        	System.out.println(value);
+                        	if(value == null) {
+                        		value = "";
+                        	}
+                            if(j==2) {
+                            	csv.write(";");
+                            }
+                        	csv.write(value + ";");
+
+                        }
+                        csv.write("\n");
+                    }
+
+                    csv.close();
+                    
+                   
+                } catch (IOException ex) {
+            		System.out.println("error");
+                    System.out.println(ex.getMessage());
+                }
+            }
+        });
+        
         btn_textFile.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 JFileChooser filechooser = new JFileChooser();
@@ -117,35 +271,135 @@ public class Main {
                         int start = 0;
                         InputStreamReader inputStreamReader = new InputStreamReader(new FileInputStream(filepath));
                         CSVParser csvParser = CSVFormat.EXCEL.withDelimiter(';').parse(inputStreamReader);
-  
-                        for(String header : headers) {
-                        	System.out.println(header);
-                        	csv_data.addColumn(header);
+
+                        for (String header: headers) {
+                            System.out.println(header);
+                            csv_data.addColumn(header);
                         }
-                        
-                        for (CSVRecord csvRecord : csvParser) {
-                        	Vector<String> row = new Vector<String>();
-                        	for(Integer r = 0 ; r < 15 ; r++) {
-                        		 row.add(csvRecord.get(r));
-                        	}
+
+                        for (CSVRecord csvRecord: csvParser) {
+                            Vector < String > row = new Vector < String > ();
+                            for (Integer r = 0; r < 15; r++) {
+                                if(r != 2) {
+                                	row.add(csvRecord.get(r));
+                                }
+                            }
                             System.out.println(row);
                             csv_data.addRow(row);
                         }
                     } catch (Exception ex) {
-                    	System.out.println(ex.getMessage());
+                        System.out.println(ex.getMessage());
                         System.out.println("Error in Parsing CSV File");
                     }
                     System.out.println(csv_data);
                     table.setModel(csv_data);
-                    
+
                 }
             }
         });
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setVisible(true);
+
+        btn_xmlFile.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                JFileChooser filechooser = new JFileChooser();
+
+                int i = filechooser.showOpenDialog(null);
+                if (i == JFileChooser.APPROVE_OPTION) {
+                    File f = filechooser.getSelectedFile();
+                    String filepath = f.getPath();
+                    String fi = f.getName();
+
+                    selected_file.setText(fi);
+                    DefaultTableModel xml_data = new DefaultTableModel();
+
+                    DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+
+                    for (String header: headers) {
+                        xml_data.addColumn(header);
+                    }
+
+                    try {
+                      
+
+                        DocumentBuilder db = dbf.newDocumentBuilder();
+
+                        Document doc = db.parse(f);
+
+                        System.out.println("Root Element :" + doc.getDocumentElement().getNodeName());
+                        System.out.println("------");
+
+                        if (doc.hasChildNodes()) {
+                            printNote(doc.getChildNodes(), xml_data);
+                        }
+
+                        
+                        table.setModel(xml_data);
+                    } catch (Exception ex) {
+                        System.out.println(ex.getMessage());
+                    }
+
+                }
+            }
+        });
     }
+    private static Vector<String> row = new Vector<String>();
+    private static void printNote(NodeList nodeList, DefaultTableModel xml_data) {
+
+    	for (int count = 0; count < nodeList.getLength(); count++) {
+
+            Node tempNode = nodeList.item(count);
+
+            // make sure it's element node.
+            if (tempNode.getNodeType() == Node.ELEMENT_NODE) {
+
+                // get node name and value
+                if(!tempNode.getTextContent().contains("\n")) {
+                	System.out.println("\nNode Name =" + tempNode.getNodeName());
+                    System.out.println("Node Value =" + tempNode.getTextContent());
+                    row.add(tempNode.getTextContent());
+                    if(tempNode.getNodeName() == "disc_reader") {
+                    	xml_data.addRow(row);
+                    	System.out.println(row);
+                    	row = new Vector<String>();
+                    }
+                }
+
+                if (tempNode.hasAttributes()) {
+
+                    // get attributes names and values
+                    NamedNodeMap nodeMap = tempNode.getAttributes();
+                    for (int i = 0; i < nodeMap.getLength(); i++) {
+                        Node node = nodeMap.item(i);
+                        System.out.println("attr name : " + node.getNodeName());
+                        System.out.println("attr value : " + node.getNodeValue());
+                    }
+
+                }
+
+                if (tempNode.hasChildNodes()) {
+                    // loop again if has child nodes
+                    printNote(tempNode.getChildNodes(), xml_data);
+                }
+
+            }
+
+    	}
+
+    }
+
+	private static void fillHeaderTranslations() {
+		headerTranslations.put("Producent", "manufacturer");
+		headerTranslations.put("wielkość matrycy", "size");
+		headerTranslations.put("typ matrycy", "type");
+		headerTranslations.put("czy dotykowy ekran", "touchscreen");
+		headerTranslations.put("procesor", "name");
+		headerTranslations.put("liczba rdzeni fizyczynch", "physical_cores");
+		headerTranslations.put("taktowanie", "clock_speed");
+		headerTranslations.put("RAM", "ram");
+		headerTranslations.put("pojemność dysku", "storage");
+		headerTranslations.put("typ dysku", "type");
+		headerTranslations.put("karta graficzna", "name");
+		headerTranslations.put("pamięć karty graficznej", "memory");
+		headerTranslations.put("system operacyjny", "os");
+		headerTranslations.put("Napęd optyczny", "disc_reader");
+	}
 }
-
-
-
-

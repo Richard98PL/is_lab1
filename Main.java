@@ -18,6 +18,11 @@ import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -55,6 +60,106 @@ public class Main {
     static HashMap <String, String> headerTranslations = new HashMap<String,String>();
     static HashMap <String, JTextArea> textAreaByHeader = new HashMap<String, JTextArea>();
 
+    private static void clearTable() throws SQLException{
+    	connectToDb();
+    	try {
+    		Statement statement = con.createStatement();
+            statement.executeUpdate("DELETE FROM jdbcdb.laptops");
+   
+        } catch (Exception ex) {
+    		System.out.println("error");
+            System.out.println(ex.getMessage());
+        }
+    }
+    
+    private static void saveAllLaptops() throws SQLException{
+    	connectToDb();
+    	try {
+
+            TableModel model = table.getModel();
+            
+            Statement statement = con.createStatement();
+            String query = "INSERT INTO jdbcdb.laptops (";
+            for(String column : dbColumns) {
+            	query += "" + column + ",";
+            }
+            query = query.substring(0, query.length() - 1);
+            query += ") VALUES ";
+            
+            for (int i = 0; i < model.getRowCount(); i++) {
+            	query += "\n(";
+                for (int j = 0; j < model.getColumnCount(); j++) {
+                	String value = (String) model.getValueAt(i,  j);
+                	if(value == null) {
+                		value = "";
+                	}
+                	query += "'" + value + "',";
+                }
+                query = query.substring(0, query.length() - 1);
+                query += "),";
+                
+            }
+            query = query.substring(0, query.length() - 1);
+            query += ';';
+            System.out.println(query);
+            statement.executeUpdate(query);
+   
+        } catch (Exception ex) {
+    		System.out.println("error");
+            System.out.println(ex.getMessage());
+        }
+    }
+    
+    private static void getAllLaptops() throws SQLException {
+    	String query = "SELECT * FROM jdbcdb.laptops;";
+    	connectToDb();
+    	DefaultTableModel model = new DefaultTableModel();
+    	
+    	try {
+			Statement st = con.createStatement();
+			ResultSet rs = st.executeQuery(query);
+			System.out.println("Executing query all...");
+			System.out.println(rs);
+			for (String header: headers) {
+                model.addColumn(header);
+            }
+			while(rs.next()) {
+				Vector<String> row = new Vector<String>();
+				for(String columnName : dbColumns) {
+					System.out.println(columnName + ": " + rs.getString(columnName));
+					row.add(rs.getString(columnName));
+				}
+				model.addRow(row);
+			}
+			table.setModel(model);
+			st.close();
+			con.close();
+		} catch (SQLException e1) {
+			System.out.println(e1.getMessage());
+			con.close();
+		}
+		
+	}
+	private static Connection con;
+    private static void connectToDb() {
+		try {
+			System.out.println("Loading driver...");
+			//Class.forName("com.mysql.jc.jdbc.Driver");
+			System.out.println("Driver loaded.");
+			try {
+				con = DriverManager.getConnection("jdbc:mysql://localhost:3306/jdbcdb", "root", "root");
+				System.out.println("connection checking.");
+				System.out.println(con);
+			} catch (SQLException e) {
+				System.out.println(e.getMessage());
+				System.out.println("SQLException");
+			}
+		} catch (Exception e1) {
+			System.out.println("Class not found");
+			System.out.println(e1.getMessage());
+		}
+	}
+    
     public static void main(String args[]) {
     	fillHeaderTranslations();
         JFrame frame = new JFrame("Integracja systemów - Ryszard Rogalski");
@@ -76,12 +181,21 @@ public class Main {
 
         JButton btn_save_xmlFile = new JButton("Save File (*.xml)");
         btn_save_xmlFile.setSize(100, 100);
+        
+        JButton db_readFile = new JButton("Read File (JDBC)");
+        db_readFile.setSize(100,100);
+        
+        JButton db_saveFile = new JButton("Save File (JDBC");
+        db_saveFile.setSize(100,100);
+        
+        JButton clearDb = new JButton("Clear database");
+        clearDb.setSize(100,100);
 
 
         
         
         JPanel buttonPanel = new JPanel();
-        buttonPanel.setPreferredSize(new Dimension(750, 50));
+        buttonPanel.setPreferredSize(new Dimension(1000, 50));
         buttonPanel.setMaximumSize(buttonPanel.getPreferredSize());
         buttonPanel.setMinimumSize(buttonPanel.getPreferredSize());
 
@@ -92,6 +206,9 @@ public class Main {
         buttonPanel.add(btn_xmlFile);
         buttonPanel.add(btn_save_textFile);
         buttonPanel.add(btn_save_xmlFile);
+        buttonPanel.add(db_saveFile);
+        buttonPanel.add(db_readFile);
+        buttonPanel.add(clearDb);
 
         frame.add(buttonPanel);
 
@@ -138,6 +255,35 @@ public class Main {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setVisible(true);
         
+        db_saveFile.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+            	try {
+					saveAllLaptops();
+				} catch (SQLException e1) {
+					System.out.println(e1.getMessage());
+				}
+            }
+        });
+        
+        db_readFile.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+            	try {
+					getAllLaptops();
+				} catch (SQLException e1) {
+					System.out.println(e1.getMessage());
+				}
+            }
+        });
+        
+        clearDb.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+            	try {
+					clearTable();
+				} catch (SQLException e1) {
+					System.out.println(e1.getMessage());
+				}
+            }
+        });
         
         crudButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
@@ -378,7 +524,26 @@ public class Main {
             }
         });
     }
-    private static Vector<String> row = new Vector<String>();
+    
+    static List < String > dbColumns = Arrays.asList(
+            "manufacturer",
+            "screen_size",
+            "screen_type",
+            "screen_touchscreen",
+            "processor_name",
+            "processor_physical_cores",
+            "processor_clock_speed",
+            "ram",
+            "disc_storage",
+            "disc_type",
+            "graphic_card_name",
+            "graphic_card_memory",
+            "os",
+            "disc_reader"
+            );
+    
+    
+	private static Vector<String> row = new Vector<String>();
     private static void printNote(NodeList nodeList, DefaultTableModel xml_data) {
 
     	for (int count = 0; count < nodeList.getLength(); count++) {
